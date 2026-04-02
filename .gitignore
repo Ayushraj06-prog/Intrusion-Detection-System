@@ -1,0 +1,30 @@
+# Python virtual environments
+.venv/
+venv/
+ENV/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Databases
+*.db
+alerts.db
+
+# Diagnostic/Temporary scripts (Session specific)
+check_db.py
+diagnose_network.py
+insert_fake.py
+mock_test.py
+test_attack.py
+project.py
+
+# IDE / Editor files
+.vscode/
+.idea/
+
+# Distribution / packages
+dist/
+build/
+*.egg-info/
