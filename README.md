@@ -84,6 +84,13 @@ Feel free to contribute, report issues, or suggest improvements.
 
 ---
 
+## 📸 Dashboard Preview
+
+![Login Page](login.png)
+
+![Dashboard](dashboard.png)
+
+
 ## 📄 License
 
 MIT License
