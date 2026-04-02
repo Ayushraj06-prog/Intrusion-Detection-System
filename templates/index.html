@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand"><span class="shield">🛡️</span> IDS Dashboard</div>
+        <div class="nav-actions">
+            <a href="/logout" class="btn btn-outline">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        
+        <!-- Error Banner (Hidden by default) -->
+        <div id="sniffer-error-banner" class="alert-banner" style="display: none; background: #991b1b; color: white; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #ef4444;">
+            <div style="font-weight: bold; margin-bottom: 0.5rem;">⚠️ IDS System Alert</div>
+            <div id="sniffer-error-text" style="font-size: 0.9rem;">Sniffer was unable to start. Common causes: No Npcap installed, or not running as Administrator.</div>
+        </div>
+        
+        <!-- Top Stats Row -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Packets Processed</h3>
+                <div class="stat-value" id="stat-total-packets">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Alerts</h3>
+                <div class="stat-value danger-text" id="stat-total-alerts">0</div>
+            </div>
+            <div class="stat-card status-card">
+                <h3>Monitoring Status</h3>
+                <div class="stat-value status-wrapper">
+                    <span id="monitoring-indicator" class="status-indicator"></span>
+                    <span id="monitoring-text">ON</span>
+                </div>
+                <button id="toggle-sniff-btn" class="btn btn-danger" style="margin-top: 10px;">Stop IDS</button>
+            </div>
+        </div>
+
+        <!-- Risk Summary Row -->
+        <div class="stats-grid" style="margin-top: 1.5rem;">
+            <div class="stat-card">
+                <h3 style="color: #ef4444;">High Risk Alerts</h3>
+                <div class="stat-value" id="risk-high-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #f59e0b;">Medium Risk Alerts</h3>
+                <div class="stat-value" id="risk-medium-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #10b981;">Low Risk Alerts</h3>
+                <div class="stat-value" id="risk-low-count">0</div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Traffic (Packets/sec)</h3>
+                <canvas id="trafficChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Alerts by Rule</h3>
+                <div class="doughnut-container">
+                    <canvas id="alertsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Table -->
+        <main>
+            <div class="alerts-panel">
+                <div class="panel-header">
+                    <h2>Recent Alerts</h2>
+                    <button id="clear-alerts-btn" class="btn btn-outline">Clear History</button>
+                </div>
+                <div class="table-container scrollable">
+                    <table id="alerts-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Risk</th>
+                                <th>Rule</th>
+                                <th>Source IP</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-body">
+                            <!-- Alerts appended dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="alerts-panel" style="margin-top: 2rem;">
+                <div class="panel-header">
+                    <h2>Live Traffic Flow</h2>
+                </div>
+                <div class="table-container scrollable">
+                    <table id="traffic-table">
+                        <thead>
+                            <tr>
+                                <th>Protocol</th>
+                                <th>Flow (Src &rarr; Dst)</th>
+                                <th>Direction</th>
+                            </tr>
+                        </thead>
+                        <tbody id="traffic-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="alerts-panel" style="margin-top: 2rem;">
+                <div class="panel-header">
+                    <h2>Visited Domains</h2>
+                </div>
+                <div class="table-container scrollable">
+                    <table id="dns-table">
+                        <tbody id="dns-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Chart Objects
+        let trafficChart, alertsChart;
+        let trafficDataHistory = [];
+        let maxDataPoints = 30; // 30 seconds rolling window
+
+        function initCharts() {
+            const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
+            trafficChart = new Chart(ctxTraffic, {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'Packets/sec',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#334155' } },
+                        x: { display: false }
+                    },
+                    plugins: { legend: { display: false } },
+                    animation: false
+                }
+            });
+
+            const ctxAlerts = document.getElementById('alertsChart').getContext('2d');
+            alertsChart = new Chart(ctxAlerts, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#f8fafc' } }
+                    }
+                }
+            });
+        }
+
+        async function fetchStats() {
+            try {
+                // Fetch Stats
+                console.log("Fetching stats...");
+                let res = await fetch('/api/stats');
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                let stats = await res.json();
+                
+                if (stats) {
+                    document.getElementById('stat-total-packets').innerText = (stats.total_packets || 0).toLocaleString();
+                    if(stats.total_alerts !== undefined) {
+                        document.getElementById('stat-total-alerts').innerText = stats.total_alerts.toLocaleString();
+                    }
+                    
+                    // Update Line Chart
+                    updateTrafficChart(stats.packets_per_second || 0);
+
+                    if (stats.sniffer_error) {
+                        const banner = document.getElementById('sniffer-error-banner');
+                        const errorText = document.getElementById('sniffer-error-text');
+                        banner.style.display = 'block';
+                        errorText.innerText = `Sniffer Error: ${stats.sniffer_error}. Try running as Administrator and ensure Npcap is installed.`;
+                    } else {
+                        document.getElementById('sniffer-error-banner').style.display = 'none';
+                    }
+
+                    // Update Status text and button
+                    const btn = document.getElementById('toggle-sniff-btn');
+                    const indicator = document.getElementById('monitoring-indicator');
+                    const text = document.getElementById('monitoring-text');
+                    
+                    if (stats.sniffing_active) {
+                        text.innerText = 'ON';
+                        indicator.className = 'status-indicator active';
+                        btn.innerText = 'Stop IDS';
+                        btn.className = 'btn btn-danger';
+                    } else {
+                        text.innerText = 'OFF';
+                        indicator.className = 'status-indicator inactive';
+                        btn.innerText = 'Start IDS';
+                        btn.className = 'btn btn-success';
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching stats:", err);
+            }
+        }
+
+        async function fetchRiskSummary() {
+            try {
+                let res = await fetch('/api/risk-summary');
+                let summary = await res.json();
+                
+                document.getElementById('risk-high-count').innerText = summary.HIGH || 0;
+                document.getElementById('risk-medium-count').innerText = summary.MEDIUM || 0;
+                document.getElementById('risk-low-count').innerText = summary.LOW || 0;
+            } catch (err) {
+                console.error("Error fetching risk summary:", err);
+            }
+        }
+
+        async function fetchAlertStats() {
+            try {
+                let res = await fetch('/api/alerts/summary');
+                let summary = await res.json();
+                
+                let labels = Object.keys(summary);
+                let data = Object.values(summary);
+
+                alertsChart.data.labels = labels;
+                alertsChart.data.datasets[0].data = data;
+                alertsChart.update();
+
+            } catch (err) {
+                console.error("Error fetching alert summary:", err);
+            }
+        }
+
+        async function fetchAlerts() {
+            try {
+                console.log("Fetching alerts...");
+                const response = await fetch('/alerts');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const alerts = await response.json();
+                
+                const tbody = document.getElementById('alerts-body');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                
+                if (alerts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="no-alerts">No alerts detected yet. Activity is clean.</td></tr>';
+                    return;
+                }
+
+                alerts.forEach(alert => {
+                    const tr = document.createElement('tr');
+                    
+                    let riskClass = 'low';
+                    if (alert.risk_level === 'HIGH') riskClass = 'danger';
+                    else if (alert.risk_level === 'MEDIUM') riskClass = 'warn';
+                    
+                    let ruleClass = '';
+                    if (alert.rule.includes('Port Scan')) ruleClass = 'warn';
+                    if (alert.rule.includes('SYN Flood')) ruleClass = 'danger';
+                    if (alert.rule.includes('ICMP Flood')) ruleClass = 'danger';
+                    
+                    let sourceDisplay = alert.source_ip;
+                    if (alert.country && alert.country !== 'Unknown') {
+                        sourceDisplay += ` <span style="font-size: 0.85rem; color: #94a3b8; font-weight: normal;">(${alert.country}, ${alert.city}, ${alert.isp})</span>`;
+                    } else if (alert.country === 'Unknown' || alert.city === 'Local') {
+                        sourceDisplay += ` <span style="font-size: 0.85rem; color: #94a3b8; font-weight: normal;">(Local/Unknown)</span>`;
+                    }
+                    
+                    tr.innerHTML = `
+                        <td>${alert.timestamp}</td>
+                        <td><span class="badge ${riskClass}">${alert.risk_level || 'LOW'}</span></td>
+                        <td><span class="badge ${ruleClass}">${alert.rule}</span></td>
+                        <td class="ip-address">${sourceDisplay}</td>
+                        <td>${alert.details}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error("Error fetching alerts:", error);
+            }
+        }
+
+        function updateTrafficChart(pps) {
+            let dataArr = trafficChart.data.datasets[0].data;
+            dataArr.push(pps);
+            dataArr.shift(); // remove oldest
+            trafficChart.update();
+        }
+
+        async function fetchLiveTraffic() {
+            try {
+                let res = await fetch('/api/traffic');
+                let traffic = await res.json();
+                
+                let tbody = document.getElementById('traffic-body');
+                tbody.innerHTML = '';
+                
+                if(traffic.length === 0){
+                    tbody.innerHTML = '<tr><td colspan="3" class="no-alerts">No live traffic captured yet.</td></tr>';
+                    return;
+                }
+                
+                traffic.forEach(t => {
+                    let tr = document.createElement('tr');
+                    
+                    let pclass = 'badge';
+                    if(t.protocol === 'UDP') pclass = 'badge warn';
+                    else if(t.protocol === 'ICMP') pclass = 'badge danger';
+                    
+                    let portDisplay = t.port ? `:${t.port}` : '';
+                    let flow = `${t.src} &rarr; ${t.dst} <span style="color: #94a3b8; font-size: 0.85rem;">[${t.protocol}${portDisplay}]</span>`;
+                    
+                    let dirClass = t.direction === 'OUTGOING' ? 'color: #10b981;' : 'color: #ef4444;';
+                    
+                    tr.innerHTML = `
+                        <td><span class="${pclass}">${t.protocol}</span></td>
+                        <td class="ip-address" style="color: white;">${flow}</td>
+                        <td><span style="font-size: 0.8rem; font-weight: bold; letter-spacing: 0.05em; ${dirClass}">${t.direction}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch(e) {
+                console.error("Traffic fetch error", e);
+            }
+        }
+
+        async function fetchLiveDns() {
+            try {
+                let res = await fetch('/api/dns');
+                let dns = await res.json();
+                
+                let tbody = document.getElementById('dns-body');
+                tbody.innerHTML = '';
+                
+                if(dns.length === 0){
+                    tbody.innerHTML = '<tr><td class="no-alerts">No DNS queries intercepted yet.</td></tr>';
+                    return;
+                }
+                
+                dns.forEach(d => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="color: #94a3b8; font-family: monospace; width: 100px;">[${d.timestamp}]</td>
+                        <td style="color: #60a5fa; font-weight: 500;">${d.domain}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch(e) {
+                console.error("DNS fetch error", e);
+            }
+        }
+
+        // Action Listeners
+        document.getElementById('toggle-sniff-btn').addEventListener('click', async () => {
+            let currentText = document.getElementById('monitoring-text').innerText;
+            let newState = currentText === 'OFF' ? true : false;
+            await fetch('/api/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ active: newState })
+            });
+            fetchStats();
+        });
+
+        document.getElementById('clear-alerts-btn').addEventListener('click', async () => {
+            if (confirm("Are you sure you want to clear all alert history?")) {
+                await fetch('/api/alerts/clear', { method: 'POST' });
+                fetchAlerts();
+                fetchAlertStats();
+                fetchStats();
+            }
+        });
+
+        // Init and Intervals
+        initCharts();
+        fetchStats();
+        fetchAlerts();
+        fetchAlertStats();
+        fetchLiveTraffic();
+        fetchLiveDns();
+
+        setInterval(fetchStats, 2000); // 2s
+        setInterval(fetchLiveTraffic, 2000); // 2s refresh live packet feed
+        setInterval(fetchLiveDns, 2000); // 2s refresh DNS domains
+        setInterval(fetchAlerts, 2000); // 2s
+        setInterval(fetchAlertStats, 5000); // 5s
+        setInterval(fetchRiskSummary, 5000); // 5s
+        fetchRiskSummary();
+
+    </script>
+</body>
+</html>

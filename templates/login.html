@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <h1><span class="shield">🛡️</span> IDS Shield</h1>
+            <p>Please sign in to access the dashboard.</p>
+            
+            {% if error %}
+            <div class="error-msg">{{ error }}</div>
+            {% endif %}
+            {% if registered %}
+            <div class="success-msg" style="background-color: rgba(16, 185, 129, 0.1); color: #10b981; padding: 0.75rem; border-radius: 6px; margin-bottom: 1.5rem; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.9rem;">Account created successfully! Please log in.</div>
+            {% endif %}
+            
+            <form action="/login" method="POST">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Access Dashboard</button>
+            </form>
+            <div style="margin-top: 1.5rem; color: #94a3b8; font-size: 0.9rem; text-align: center;">
+                Don't have an account? <a href="/register" style="color: var(--accent); text-decoration: none; font-weight: bold;">Create Account</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
