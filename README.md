@@ -22,35 +22,53 @@ A real-time network monitoring and intrusion detection system built using Python
 
 ## 📸 Dashboard Preview
 
-(Add your screenshot here)
+![Login Page](login.png)
+
+![Dashboard](dashboard.png)
 
 ---
 
 ## 🛠️ Requirements
 
 - Python 3.x  
-- Npcap (Windows only): https://npcap.com  
-- Administrator privileges  
+- **Windows:** Npcap → https://npcap.com  
+- Administrator / Sudo privileges  
 
 ---
 
 ## 📦 Installation & Setup
 
-Step 1: Clone the Repository  
+### 🪟 Windows Users
 
+Step 1: Clone the Repository  
 git clone https://github.com/Ayushraj06-prog/Intrusion-Detection-System.git  
 cd Intrusion-Detection-System  
 
 Step 2: Install Dependencies  
-
 pip install -r requirements.txt  
 
 Step 3: Run the Application  
-
+⚠️ Run terminal as Administrator  
 python app.py  
 
 Step 4: Open in Browser  
+http://localhost:5000  
 
+---
+
+### 🐧 Linux Users
+
+Step 1: Clone the Repository  
+git clone https://github.com/Ayushraj06-prog/Intrusion-Detection-System.git  
+cd Intrusion-Detection-System  
+
+Step 2: Install Dependencies  
+pip3 install -r requirements.txt  
+
+Step 3: Run the Application  
+sudo python3 app.py  
+
+Step 4: Open in Browser  
 http://localhost:5000  
 
 ---
@@ -64,17 +82,19 @@ Password: admin123
 
 ## 🛡️ Modes
 
-Live Mode: Uses Npcap + Administrator access to capture real network traffic  
+Live Mode:  
+Uses Npcap (Windows) or native Linux interfaces to capture real network traffic  
 
-Simulation Mode: Runs without setup using generated traffic  
+Simulation Mode:  
+Runs without setup using generated traffic  
 
 ---
 
 ## ⚠️ Important Notes
 
-- Run terminal as Administrator (Windows)  
-- Install Npcap for real packet capture  
-- Automatically switches to simulation if permissions are not available  
+- Run terminal as Administrator (Windows) or use sudo (Linux)  
+- Npcap is required only on Windows  
+- Automatically switches to simulation mode if permissions are not available  
 
 ---
 
@@ -83,13 +103,6 @@ Simulation Mode: Runs without setup using generated traffic
 Feel free to contribute, report issues, or suggest improvements.
 
 ---
-
-## 📸 Dashboard Preview
-
-![Login Page](login.png)
-
-![Dashboard](dashboard.png)
-
 
 ## 📄 License
 
